@@ -122,7 +122,6 @@ classdef AdvancedTeach < handle
             % Update the Edit Text String with the slider value
             app.valueEdits(jointIndex).String = num2str(value);
             
-            % You can also call the function to update the robot here, if needed
             app.updateRobot();
         end
     
