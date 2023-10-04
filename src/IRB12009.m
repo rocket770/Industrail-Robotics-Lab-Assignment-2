@@ -35,10 +35,6 @@ function self = IRB12009()
             link(6) = Link([0      0.082     0       0      	0]);
 
          
-
-
-
-
             % Incorporate joint limits
             link(1).qlim = [-170 170]*pi/180;
             link(2).qlim = [-100 130]*pi/180;
@@ -53,10 +49,9 @@ function self = IRB12009()
             % 
             self.model = SerialLink(link,'name',self.name);
 
-            % I created the below two lines
+            % I created the below two lines for testing
             % q = zeros(1,6);
             % self.model.teach()
-            axis equal;
         end
      
     end
