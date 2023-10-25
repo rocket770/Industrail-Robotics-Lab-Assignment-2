@@ -11,6 +11,11 @@ classdef EStop < handle
         
         function createGUI(obj)
             f = gcf; % Get current figure
+
+
+            addlistener(f, 'KeyPress', @(src, event) obj.keyPressCallback(src, event));
+
+
             figPos = f.Position; % Get figure position [left, bottom, width, height]
             btnWidth = 200;
             btnHeight = 50;
@@ -20,10 +25,20 @@ classdef EStop < handle
             obj.eStopButton = uicontrol('Style', 'pushbutton', 'String', 'E-Stop',...
                 'Position', [btnLeft btnBottom btnWidth btnHeight],...
                 'Callback', @(src, event) obj.onPress());
+
         end
     end
     
     methods (Access = private)
+
+        
+        function keyPressCallback(obj, src, event)
+            %if event.Key == 's'
+            %    obj.onPress();
+            %end
+            obj.onPress();
+        end
+
         function onPress(obj)
             if strcmp(obj.state, 'running')
                 obj.state = 'stopped';
@@ -40,7 +55,7 @@ classdef EStop < handle
     
     methods
         function state = getEStopState(obj)
-            state = obj.state;
+            state = ~strcmp(obj.state, 'running');
         end
     end
 end
