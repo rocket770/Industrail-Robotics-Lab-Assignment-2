@@ -46,8 +46,8 @@ deltaT = 0.02;
 circleQMatrix = pathGenerator.getWaypointRMRC(waypoints, steps_per_waypoint, deltaT);
 
 %% Lift Up RMRC
-x1 = [center(1) + radius center(2) center(3)  0]';
-x2 = [center(1) + radius center(2) center(3) + 0.05 0]';
+x1 = [center(1) - radius center(2) center(3)  0]';
+x2 = [center(1) - radius center(2) center(3) + 0.05 0]';
 
 pointSteps = 30;
 
@@ -64,20 +64,17 @@ moveQMatrix = pathGenerator.getPointRMRC(x2, x3, pointSteps, deltaT);
 IRBPositions = [
     1.843 -1.227 0.5623;
     1.8067 -1.2161 0.8802;
+    0.795 -1.5 1.1
     0.795 -1.81 0.8287;
-    0.3578 -1.1898 0.5604;
-    0.56, -1.181, 0.4834;
-    0.609, -1.164, 0.7;
+    0.795 -1.5 1.1
     ];
 
-
 IRBAngles = [
-    -0.2967    1.4451   -0.3770         0   -0.7854         0
+    -0.2967    1.4451   -0.3770         0   -0.7854         0;
     -0.3    0.8   -0.05        0         0         0;
+    -0.2546   0.6178   -0.1599         0         0         0;   % THish put this in
     -2   1.1   -0.5         0         0         0;
-    -2.8   1.5   -0.4    0.1885   -1.1525         0;
-    -2.7925    1.5010    0.0698    0.1745   -1.5603         0;
-    -2.7925    0.9791    0.5411    0.1745   -1.5603         0
+    -0.2546   0.6178   -0.1599         0         0         0;   % THish put this in
     ];
 
 %% Gripper
@@ -90,8 +87,8 @@ gripper = IRBGripper(IRB.model, 0.1, gripperOpen, gripperClosed);
 gripper.updateGripperPosition(IRB.model, gripperOpen)
 
 %% E Stop
-
-eStop = EStop;
+eStop = EStop();
+listener = ArduinoListener("COM3", 9600, eStop);
 
 %% Main loop
 
@@ -108,7 +105,12 @@ currentIRBPos = 1;
 currentIRBStep = 1;
 
 while ~strcmp(state, 'FINISHED')
+
+    listener.checkForData();
     paused = eStop.getEStopState();
+
+    
+
     if paused
         drawnow();
         %disp('paused')
@@ -145,7 +147,6 @@ while ~strcmp(state, 'FINISHED')
 
                 
             end
-
 
         case "LIFT_ARM"
             if currentStep <= pointSteps
@@ -220,6 +221,8 @@ while ~strcmp(state, 'FINISHED')
     pause(delay)
 end
 
+
+listener.delete();
 
 
 function position = getPos(robotModel)
