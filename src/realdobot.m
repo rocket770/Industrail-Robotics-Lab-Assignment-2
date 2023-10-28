@@ -33,7 +33,7 @@ qua = eul2quat(endEffectorRotation);
         % 
         % send(targetEndEffectorPub,targetEndEffectorMsg)
 
-for i = 1:5
+for j = 1:5
     for i = 1:steps
 
         targetEndEffectorMsg.Position.X = x(i); 
