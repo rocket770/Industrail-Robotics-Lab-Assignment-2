@@ -1,74 +1,138 @@
 classdef PathGenerator < handle
     %RMRC Summary of this class goes here
     %   Detailed explanation goes here
-    
+
     properties
         robot
         mask
     end
-    
+
     methods
         function obj = PathGenerator(robot, mask)
             obj.robot = robot;
             obj.mask = mask;
         end
 
-        function [iTraj, fTraj] = getRMRC(obj, x, steps, deltaT) 
-            % Moving the robot to the starting point of the circle
-            t_start = [x(1,1) x(2,1) x(3,1)]';
-            T_start = [eye(3) t_start; zeros(1,3) 1];
-            
-            % Getting the initial quess of the robot            
-            initial_q = obj.generateInitalQ(t_start); 
+        function [qMatrix] = getWaypointRMRC(obj, waypoints, steps_per_waypoint, deltaT)
+            epsilon = 0.002;
 
-            q_start = obj.robot.ikine(T_start, initial_q, 'mask', obj.mask); % inital_q is a bad guess
-            
-            iTraj = obj.getMinJerkProfile(initial_q, q_start, steps); % Generating a joint-space trajectory
-                         
-            
-            fTraj = nan(steps, obj.robot.n);
-            fTraj(1,:) = q_start;
-            
-            % RMRC Calculation
-            for i = 1:steps-1
-                xdot = (x(:,i+1) - x(:,i))/deltaT;
-                J = obj.robot.jacob0(fTraj(i,:)); % Get the Jacobian at the current state
-                J = J(1:3,:); % Taking only the first 3 rows
-                qdot = pinv(J)*xdot; % Using pseudo-inverse to solve velocities via RMRC
-                fTraj(i+1,:) = fTraj(i,:) + deltaT*qdot'; % Update next joint state
+
+
+            traj_waypoints = length(waypoints);
+            qMatrix = zeros(steps_per_waypoint, 5, traj_waypoints);
+
+            for point = 1:traj_waypoints -1
+
+                m = zeros(steps_per_waypoint, 1);             % Array for Measure of Manipulability
+                qdot = zeros(steps_per_waypoint, 4);
+
+                x1 = waypoints(:, point);
+                x2 = waypoints(:, point+1);
+
+
+                T1 = [eye(3) [x1(1:3)]; zeros(1,3) 1] * troty(-pi); % start point
+
+
+                if point == 1
+                    q1 = obj.robot.ikine(T1, 'q0', [0    0.7854    1.5708    0.7854   0], 'mask', obj.mask);
+                    qMatrix(1,:,1) = q1;
+                    %obj.robot.animate(q1)
+                else
+                    qMatrix(1, :, point) = qMatrix(steps_per_waypoint,:, point-1);
+                end
+
+                x = zeros(4,steps_per_waypoint);
+                s = lspb(0,1,steps_per_waypoint); % Create interpolation scalar
+
+                for step = 1:steps_per_waypoint
+                    x(:,step) = x1*(1-s(step)) + s(step)*x2; % Create trajectory in x-y  plane
+                end
+
+                for i = 1:steps_per_waypoint-1
+                    xdot = (x(:,i+1) - x(:,i))/deltaT; % Calculate velocity at discrete time step
+
+
+
+                    J = obj.robot.jacob0(qMatrix(i, :, point)); % Get the Jacobian at the current state
+
+                    J = J(1:4,1:4); % Take only first 4 rows
+
+                    m(i) = sqrt(det(J*J'));
+
+                    if  m(i) < epsilon  % If manipulability is less than given threshold
+                        lambda = (1 - m(i)/epsilon)*5E-2;
+                    else
+                        lambda = 0;
+                    end
+
+                    invJ = inv(J'*J + lambda * eye(4))*J';                                   % DLS Inverse
+                    qdot(i,:) = (invJ*xdot)';% Solve velocitities via RMRC
+
+                    for j = 1:4                                                            % Loop through joints 1 to 4 as that is what we're changing
+                        if qMatrix(i,j) + deltaT*qdot(i,j) < obj.robot.qlim(j,1)                     % If next joint angle is lower than joint limit...
+                            qdot(i,j) = 0; % Stop the motor
+                        elseif qMatrix(i,j) + deltaT*qdot(i,j) >  obj.robot.qlim(j,2)                 % If next joint angle is greater than joint limit ...
+                            qdot(i,j) = 0; % Stop the motor                
+                        end
+                    end
+
+                    qMatrix(i+1, :, point) = qMatrix(i, :, point) + deltaT*[qdot(i,:), 0];
+                end
             end
 
-        end        
+        end
+
     
-        function qMatrix = getMinJerkProfile(obj, q1, q2, steps)
-            % Generate the LSPB speed profile between 0 and 1 for the given number of steps
-            % s is a vector where each value is a blend between q1 and q2.
-            s = lspb(0, 1, steps);
-            
-            % Initialize the trajectory matrix with NaN values
-            qMatrix = nan(steps, obj.robot.n);
-            
-            % Loop over each step to compute the joint configurations
+        function [qMatrix] = getPointRMRC(obj, x1, x2, steps, deltaT)
+            epsilon = 0.02;
+            m = zeros(steps, 1);             % Array for Measure of Manipulability
+            qdot = zeros(steps, 4);
+
+
+            T1 = [eye(3) x1(1:3); zeros(1,3) 1] * troty(-pi); % start point
+
+            q1 = obj.robot.ikine(T1, 'q0',[0    0.7854    1.5708    0.7854   0], 'mask', obj.mask); % Solve for jointangles in START
+
+            obj.robot.animate(q1);
+
+
+            x = zeros(4,steps);
+            s = lspb(0,1,steps); % Create interpolation scalar
+
             for i = 1:steps
-                % Blend between the initial and final configurations using the LSPB speed profile
-                qMatrix(i, :) = (1 - s(i)) * q1 + s(i) * q2;
+                x(:,i) = x1*(1-s(i)) + s(i)*x2; % Create trajectory in x-y  plane
             end
+            qMatrix = nan(steps,5);
+            qMatrix(1,:) = q1; % Solve for joint angles
+
+            for i = 1:steps-1
+                xdot = (x(:,i+1) - x(:,i))/deltaT; % Calculate velocity at discrete time step
+                J = obj.robot.jacob0(qMatrix(i,:));
+                % Get the Jacobian at the current state
+                J = J(1:4,1:4); % Take only first 2 rows
+                m(i) = sqrt(det(J*J'));
+
+                if  m(i) < epsilon  % If manipulability is less than given threshold
+                    lambda = (1 - m(i)/epsilon)*5E-2;
+                else
+                    lambda = 0;
+                end
+
+                invJ = inv(J'*J + lambda * eye(4))*J';                                   % DLS Inverse
+                qdot(i,:) = (invJ*xdot)';% Solve velocitities via RMRC
+
+                for j = 1:4                                                            % Loop through joints 1 to 4 as that is what we're changing
+                    if qMatrix(i,j) + deltaT*qdot(i,j) < obj.robot.qlim(j,1)                     % If next joint angle is lower than joint limit...
+                        qdot(i,j) = 0; % Stop the motor
+                    elseif qMatrix(i,j) + deltaT*qdot(i,j) >  obj.robot.qlim(j,2)                 % If next joint angle is greater than joint limit ...
+                        qdot(i,j) = 0; % Stop the motor
+
+                    end
+                end
+
+                qMatrix(i+1, :) = qMatrix(i, :) + deltaT*[qdot(i,:), 0];
+            end
+
         end
-
-        function q =  generateInitalQ(obj, t)
-               % Calculate the direction vector from the robot to the target.
-   
-                direction = t - obj.robot.base.t;
-                
-                % Compute the azimuth and elevation angles.
-                azimuth = atan2(direction(2), direction(1));
-                %elevation = atan2(direction(3), sqrt(direction(1)^2 + direction(2)^2));
-                % Set the initial guess based on the angles and some mid-range values.
-                q = [azimuth, 0.087266, zeros(1, obj.robot.n-2)];  % Just an example. Adjust accordingly.
-        end
-
-
-
     end
 end
-
