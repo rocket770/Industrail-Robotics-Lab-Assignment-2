@@ -25,15 +25,10 @@ end
 endEffectorSub = rossubscriber('/dobot_magician/current_end_effector_pose');   
 
 endEffectorRotation = [0,0,0];
-qua = eul2quat(endEffectorRotation);
 
-        % targetEndEffectorMsg.Position.X = 0.3; 
-        % targetEndEffectorMsg.Position.Y = 0;
-        % targetEndEffectorMsg.Position.Z = 0;
-        % 
-        % send(targetEndEffectorPub,targetEndEffectorMsg)
 
-for i = 1:5
+
+for j = 1:5
     for i = 1:steps
 
         targetEndEffectorMsg.Position.X = x(i); 
@@ -48,14 +43,8 @@ for i = 1:5
 
 
         send(targetEndEffectorPub,targetEndEffectorMsg);
-        % pause(0.5)
+        pause(0.5)
 
        
     end
 end
-
-        % targetEndEffectorMsg.Position.X = 0.3; 
-        % targetEndEffectorMsg.Position.Y = 0;
-        % targetEndEffectorMsg.Position.Z = 0;
-        % 
-        % send(targetEndEffectorPub,targetEndEffectorMsg)
