@@ -12,7 +12,7 @@
 close all;
 clc;
 
-2.1: Make a 3DOF model
+
 L1 = Link('d',0,'a',1,'alpha',0,'qlim',[-pi pi]);
 L2 = Link('d',0,'a',1,'alpha',0,'qlim',[-pi pi]);
 L3 = Link('d',0,'a',1,'alpha',0,'qlim',[-pi pi]);       
@@ -46,7 +46,7 @@ Stepping through each of the wrote down joint states
 Stop when there is a collision
 
 
-
+%% Everything above this is just robot setup
 
 
 
@@ -183,72 +183,6 @@ for qIndex = 1:size(qMatrix,1)
 end
 end
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-% function [result, my_tr] = IsCollision(robot,qMatrix,faces,vertex,faceNormals,returnOnceFound)
-% h = 0;
-% % my_tr = zeros(1);
-% 
-% if nargin < 6
-%     returnOnceFound = true;
-% end
-% result = false;
-% 
-% for qIndex = 1:size(qMatrix,1)
-%     % Get the transform of every joint (i.e. start and end of every link)
-%     tr = GetLinkPoses(qMatrix(qIndex,:), robot);
-% 
-%     % Go through each link and also each triangle face
-%     for i = 1 : size(tr,3)-1    
-%         for faceIndex = 1:size(faces,1)
-%             vertOnPlane = vertex(faces(faceIndex,1)',:);
-%             [intersectP,check] = LinePlaneIntersection(faceNormals(faceIndex,:),vertOnPlane,tr(1:3,4,i)',tr(1:3,4,i+1)'); 
-%             if check == 1 && IsIntersectionPointInsideTriangle(intersectP,vertex(faces(faceIndex,:)',:))
-%                 plot3(intersectP(1),intersectP(2),intersectP(3),'g*');
-%                 % disp('Intersection');
-%                 result = true;
-% 
-%                 % if h == 0
-%                 %     my_tr(1) = qIndex;
-%                 %     disp(my_tr)
-%                 % end
-%                 % h = h + 1;
-% 
-%             % else
-%             %     disp("no col")
-%                 if returnOnceFound
-%                     return
-%                 end
-%             end
-%         end    
-%     end
-% end
-% end
 
 %% GetLinkPoses
 % q - robot joint angles
