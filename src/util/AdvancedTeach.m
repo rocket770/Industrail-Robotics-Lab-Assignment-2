@@ -7,6 +7,12 @@ classdef AdvancedTeach < handle
         valueEdits
         step = 0.01;
         positionLabel
+
+        % Joystick
+        joy
+        prevButtons
+        joyTimer % Timer for joystick polling
+        joyQ
     end
 
     methods
@@ -18,6 +24,18 @@ classdef AdvancedTeach < handle
             app.robot = robot;
             app.qlim = robot.qlim;
             app.createComponents();
+
+
+             % Initialize joystick
+            app.joy = vrjoystick(1);
+            app.prevButtons = button(app.joy);
+
+            app.joyQ = app.robot.getpos();
+            
+            % Configure timer for joystick polling
+            app.joyTimer = timer('Period', 0.1, 'ExecutionMode', 'fixedRate', ...
+                                 'TimerFcn', @(src, event) app.controllerCallback());
+            start(app.joyTimer);
         end
 
         function createComponents(app)
@@ -79,7 +97,9 @@ classdef AdvancedTeach < handle
             % Create UI components in positionPanel to display x, y, z coordinates
             app.positionLabel = uicontrol('Parent', positionPanel, 'Style', 'text', 'String', 'X: 0 Y: 0 Z: 0', ...
                 'Units', 'normalized', 'Position', [0.1, 0.3, 0.8, 0.3], 'HorizontalAlignment', 'center', 'FontSize', 10);
-
+            
+            % Used to ensure timers do not keep running.
+            app.fig.CloseRequestFcn = @(src, event) app.closeRequestFcn(src, event);
 
         end
 
@@ -147,13 +167,17 @@ classdef AdvancedTeach < handle
             end
             
             if ~isempty(qNew)
-                app.robot.animate(qNew);
-                for i = 1:app.robot.n
-                    app.sliders(i).Value = qNew(i);
-                    app.valueEdits(i).String = num2str(qNew(i));
-                end
-                app.updatePositionPanel();
+               app.updateRobotPosition(qNew)
             end
+        end
+
+        function updateRobotPosition(app, q)
+            app.robot.animate(q);
+            for i = 1:app.robot.n
+                app.sliders(i).Value = q(i);
+                app.valueEdits(i).String = num2str(q(i));
+            end
+            app.updatePositionPanel();
         end
 
         function modifyStep(app, src)
@@ -171,6 +195,60 @@ classdef AdvancedTeach < handle
             
             % Update the positionLabel with the new Cartesian position
             app.positionLabel.String = sprintf('X: %.2f Y: %.2f Z: %.2f', T.t(1), T.t(2), T.t(3));
+        end
+
+        function controllerCallback(app, ~, ~)
+            [axes, buttons, ~] = read(app.joy);
+            disp(buttons)
+
+            % Add deadzone, abs threshold = 0.1
+
+
+            dt = 0.15;
+            app.joyQ = app.robot.getpos();
+            Kv = 0.3; % linear velocity gain
+            Kw = 0.8; % angular velocity gain
+            vx = Kv*axes(1);
+            vy = Kv*axes(2);
+            vz = Kv*(buttons(5)-buttons(7));
+            wx = Kw*axes(4);
+            wy = Kw*axes(3);
+            wz = Kw*(buttons(6)-buttons(8));
+            dx = [vx;vy;vz;wx;wy;wz]; % combined velocity vector
+
+
+            % Use DLS J inverse to calculate joint velocity
+            lambda = 0.5;
+            J = app.robot.jacob0(app.joyQ);
+            Jinv_dls = inv((J'*J)+lambda^2*eye(6))*J';
+            dq = Jinv_dls*dx;
+
+            % Apply joint velocity to step robot joint angles
+            q = app.joyQ + dq'*dt;
+            
+            inJointLimits = true;
+            % Check if the next movement is within qlim, by looking at
+            % every joint before it is applied
+            for i = 1:app.robot.n
+                if q(i) < app.qlim(i, 1) || q(i) > app.qlim(i, 2)
+                    inJointLimits = false;
+                end
+            end
+
+            if inJointLimits
+                app.joyQ = q;
+                app.updateRobotPosition(app.joyQ);
+            end
+
+        end
+
+        function closeRequestFcn(app, ~, ~)
+            
+            % Stop and delete the joystick timer
+            stop(app.joyTimer);
+            delete(app.joyTimer);
+
+            delete(app.fig);
         end
 
 
