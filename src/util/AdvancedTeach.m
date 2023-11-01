@@ -97,6 +97,9 @@ classdef AdvancedTeach < handle
             % Create UI components in positionPanel to display x, y, z coordinates
             app.positionLabel = uicontrol('Parent', positionPanel, 'Style', 'text', 'String', 'X: 0 Y: 0 Z: 0', ...
                 'Units', 'normalized', 'Position', [0.1, 0.3, 0.8, 0.3], 'HorizontalAlignment', 'center', 'FontSize', 10);
+
+            addlistener(app.fig, 'KeyPress', @(src, event) app.keyPressCallback(src, event));
+
             
             % Used to ensure timers do not keep running.
             app.fig.CloseRequestFcn = @(src, event) app.closeRequestFcn(src, event);
@@ -201,7 +204,7 @@ classdef AdvancedTeach < handle
             threshold = 0.1;
             [axes, buttons, ~] = read(app.joy);
 
-            disp(axes);
+            
 
             % Add deadzone, abs threshold = 0.1
             for i = 1:length(axes)
@@ -209,6 +212,8 @@ classdef AdvancedTeach < handle
                     axes(i) = 0;
                 end
             end
+            axes(4) = min(max(axes(4),0),1);
+            axes(5) = min(max(axes(5),0),1);
 
             dt = 0.15;
             app.joyQ = app.robot.getpos();
@@ -257,6 +262,12 @@ classdef AdvancedTeach < handle
 
             delete(app.fig);
         end
+
+         function keyPressCallback(app, ~, event)
+                if event.Key == 'r'
+                    app.updateRobotPosition(zeros(1,app.robot.n));
+                end
+         end
 
 
     end
