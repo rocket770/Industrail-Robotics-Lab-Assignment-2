@@ -7,15 +7,11 @@ classdef IRB12009 < RobotBaseClass
 
     methods
 %% Define robot Function 
-function self = IRB12009() 
-            cla;
+        function self = IRB12009(baseTr) 
 			self.CreateModel();
             
             if nargin < 1			
-				baseTr = [1,0,0,0
-            		      0,1,0,0
-                         0,0,1,0
-                         0,0,0,1];
+				baseTr = eye(4);
             end
             self.model.base = self.model.base.T * baseTr; % trotx(pi/2) * troty(pi/2);
 
@@ -27,12 +23,12 @@ function self = IRB12009()
 
             
             % The DH parameters derived from the internet
-            link(1) = Link([0     0.399      0    -pi/2   0]); 
-            link(2) = Link([0      0       0.448      0  0]); 
-            link(3) = Link([0      0       0.042    -pi/2      0]);
-            link(4) = Link([0      0.451     0        pi/2     0]);
-            link(5) = Link([0      0         0       -pi/2     0]);
-            link(6) = Link([0      0.082     0       0      	0]);
+            link(1) = Link([0      0.399     0       -pi/2      0]); 
+            link(2) = Link([0      0         0.448    0         0]); 
+            link(3) = Link([0      0         0.042    -pi/2     0]);
+            link(4) = Link([0      0.451     0        pi/2      0]);
+            link(5) = Link([0      0         0        -pi/2     0]);
+            link(6) = Link([0      0.082     0        0      	0]);
 
          
             % Incorporate joint limits
