@@ -7,6 +7,12 @@ classdef AdvancedTeach < handle
         valueEdits
         step = 0.01;
         positionLabel
+
+        % Joystick
+        joy
+        prevButtons
+        joyTimer % Timer for joystick polling
+        joyQ
     end
 
     methods
@@ -18,6 +24,18 @@ classdef AdvancedTeach < handle
             app.robot = robot;
             app.qlim = robot.qlim;
             app.createComponents();
+
+
+             % Initialize joystick
+            app.joy = vrjoystick(1);
+            app.prevButtons = button(app.joy);
+
+            app.joyQ = app.robot.getpos();
+            
+            % Configure timer for joystick polling
+            app.joyTimer = timer('Period', 0.1, 'ExecutionMode', 'fixedRate', ...
+                                 'TimerFcn', @(src, event) app.controllerCallback());
+            start(app.joyTimer);
         end
 
         function createComponents(app)
@@ -79,7 +97,9 @@ classdef AdvancedTeach < handle
             % Create UI components in positionPanel to display x, y, z coordinates
             app.positionLabel = uicontrol('Parent', positionPanel, 'Style', 'text', 'String', 'X: 0 Y: 0 Z: 0', ...
                 'Units', 'normalized', 'Position', [0.1, 0.3, 0.8, 0.3], 'HorizontalAlignment', 'center', 'FontSize', 10);
-
+            
+            % Used to ensure timers do not keep running.
+            app.fig.CloseRequestFcn = @(src, event) app.closeRequestFcn(src, event);
 
         end
 
@@ -147,13 +167,17 @@ classdef AdvancedTeach < handle
             end
             
             if ~isempty(qNew)
-                app.robot.animate(qNew);
-                for i = 1:app.robot.n
-                    app.sliders(i).Value = qNew(i);
-                    app.valueEdits(i).String = num2str(qNew(i));
-                end
-                app.updatePositionPanel();
+               app.updateRobotPosition(qNew)
             end
+        end
+
+        function updateRobotPosition(app, q)
+            app.robot.animate(q);
+            for i = 1:app.robot.n
+                app.sliders(i).Value = q(i);
+                app.valueEdits(i).String = num2str(q(i));
+            end
+            app.updatePositionPanel();
         end
 
         function modifyStep(app, src)
@@ -172,7 +196,6 @@ classdef AdvancedTeach < handle
             % Update the positionLabel with the new Cartesian position
             app.positionLabel.String = sprintf('X: %.2f Y: %.2f Z: %.2f', T.t(1), T.t(2), T.t(3));
         end
-
 
         function controllerCallback(app, ~, ~)
             threshold = 0.1;
@@ -234,6 +257,7 @@ classdef AdvancedTeach < handle
 
             delete(app.fig);
         end
+
 
     end
 end
