@@ -4,6 +4,8 @@ clear all;
 %% Global Variables
 mask = [1 1 1 0 0 0]; % Consider x, y, and z translations and Y rotations
 
+useCollisions = false;
+useArduino = false;
 
 %% Workspace Setup
 
@@ -17,6 +19,22 @@ IRB = environment.placeIRB12009();
 dobot.model.delay = 0;
 IRB.model.delay = 0;
 
+%% Collision Detector
+
+collisionDetector = CollisionDetector(IRB.model);
+
+%% Collision Object
+if useCollisions
+    centerpnt = [2,0,-0.5];
+    side = 1.5;
+    plotOptions.plotFaces = true;
+    
+    % Plot cat or whatever here
+    [vertex,faces,faceNormals] = RectangularPrism(centerpnt-side/2, centerpnt+side/2,plotOptions);
+    
+    
+    collisionDetector.addObstacle(vertex,faces,faceNormals);
+end
 %% RMRC Cirlce Path
 
 pathGenerator = PathGenerator(dobot.model, mask);
@@ -88,11 +106,14 @@ gripper.updateGripperPosition(IRB.model, gripperOpen)
 
 %% E Stop
 eStop = EStop();
-listener = ArduinoListener("COM3", 9600, eStop);
+
+if useArduino
+    listener = ArduinoListener("COM3", 9600, eStop);
+end
 
 %% Main loop
 
-stiringRepetions = 2;
+stiringRepetions = 1;
 
 delay = 0.005;
 
@@ -106,10 +127,23 @@ currentIRBStep = 1;
 
 while ~strcmp(state, 'FINISHED')
 
-    listener.checkForData();
-    paused = eStop.getEStopState();
+    if useArduino
+        listener.checkForData();
+    end
 
     
+    paused = eStop.getEStopState();
+
+    if useCollisions && ~paused
+        q = IRB.model.getpos();
+        collision = collisionDetector.detectCollision(q);
+        
+        if collision
+            disp('Collision Detected')
+            eStop.triggerEStop();
+        end
+
+    end
 
     if paused
         drawnow();
