@@ -1,1 +1,0 @@
-PathGenerator(DobotMagician, [1,1,1,1,1,1])   
