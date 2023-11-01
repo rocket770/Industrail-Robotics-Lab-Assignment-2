@@ -2,10 +2,16 @@ close all;
 clear all;
 
 %% Global Variables
-mask = [1 1 1 0 0 0]; % Consider x, y, and z translations and Y rotations
+mask = [1 1 1 0 0 0]; % Consider x, y, and z translations and Y rotations for RMRC
 
+% used to toggle collision demonstration
 useCollisions = false;
+% collisionPoint = 1 is box on table, = 2 is box before oven
+collisionPoint = 2;
+
+% only set true if arduino is connected
 useArduino = false;
+comPort = "COM3";
 
 %% Workspace Setup
 
@@ -25,14 +31,20 @@ collisionDetector = CollisionDetector(IRB.model);
 
 %% Collision Object
 if useCollisions
-    centerpnt = [2,0,-0.5];
-    side = 1.5;
     plotOptions.plotFaces = true;
+
+    if collisionPoint == 1
+    centerpnt = [1.5,-1.2,0.6];
+    [vertex,faces,faceNormals] = RectangularPrism(centerpnt-0.1, centerpnt + 0.3, plotOptions);
+
+
+    else
+    centerpnt = [1.2,-2.2,0.1];
+    [vertex,faces,faceNormals] = RectangularPrism(centerpnt-0.1, centerpnt + 0.8, plotOptions);
+
+    end
     
-    % Plot cat or whatever here
-    [vertex,faces,faceNormals] = RectangularPrism(centerpnt-side/2, centerpnt+side/2,plotOptions);
-    
-    
+    % Plot box here  
     collisionDetector.addObstacle(vertex,faces,faceNormals);
 end
 %% RMRC Cirlce Path
@@ -65,7 +77,7 @@ circleQMatrix = pathGenerator.getWaypointRMRC(waypoints, steps_per_waypoint, del
 
 %% Lift Up RMRC
 x1 = [center(1) - radius center(2) center(3)  0]';
-x2 = [center(1) - radius center(2) center(3) + 0.05 0]';
+x2 = [center(1) - radius center(2) center(3) + 0.04 0]';
 
 pointSteps = 30;
 
@@ -80,14 +92,16 @@ moveQMatrix = pathGenerator.getPointRMRC(x2, x3, pointSteps, deltaT);
 %Position Waypoints
 
 IRBPositions = [
-    1.843 -1.227 0.5623;
-    1.8067 -1.2161 0.8802;
+    1.7 -1.227 0.64;
+    1.82 -1.227 0.64;
+    1.8067 -1.17 0.8802;
     0.795 -1.5 1.1
     0.795 -1.81 0.8287;
     0.795 -1.5 1.1
     ];
 
 IRBAngles = [
+    -0.2967    1.4451   -0.3770         0   -0.7854         0;
     -0.2967    1.4451   -0.3770         0   -0.7854         0;
     -0.3    0.8   -0.05        0         0         0;
     -0.2546   0.6178   -0.1599         0         0         0;   % THish put this in
@@ -98,7 +112,7 @@ IRBAngles = [
 %% Gripper
 
 gripperOpen = [0,0];
-gripperClosed = [0, pi/16];
+gripperClosed = [0, pi/8];
 
 % Init each finger in the gripper
 gripper = IRBGripper(IRB.model, 0.1, gripperOpen, gripperClosed);
@@ -108,7 +122,7 @@ gripper.updateGripperPosition(IRB.model, gripperOpen)
 eStop = EStop();
 
 if useArduino
-    listener = ArduinoListener("COM3", 9600, eStop);
+    listener = ArduinoListener(comPort, 9600, eStop);
 end
 
 %% Main loop
@@ -208,16 +222,16 @@ while ~strcmp(state, 'FINISHED')
                 if ~exist('irbSubState', 'var') || strcmp(irbSubState, 'NEW_POSITION')
                     qCurrent = IRB.model.getpos();
                     goal = transl(IRBPositions(currentIRBPos,:)) * troty(pi/2);
-                    qGoal = IRB.model.ikine(goal, IRBAngles(currentIRBPos,:), 'mask', [1 1 1 0 0 0]);
+                    qGoal = IRB.model.ikine(goal, IRBAngles(currentIRBPos,:), 'mask', mask);
                     qMatrix = jtraj(qCurrent, qGoal, pointSteps);
 
                     switch currentIRBPos
                         case 1
                             gripperState = gripperOpen;
-                        case 2
+                        case 3
                             gripper.closeHand();
                             gripperState = gripperClosed;
-                        case 5
+                        case 6
                             gripper.openHand();
                             gripperState = gripperOpen;
                     end
@@ -230,7 +244,7 @@ while ~strcmp(state, 'FINISHED')
                         IRB.model.animate(qMatrix(currentIRBStep,:));
                         gripper.updateGripperPosition(IRB.model, gripperState);
 
-                        if (currentIRBPos > 1 && currentIRBPos < 5)
+                        if (currentIRBPos > 2 && currentIRBPos < 6)
                             T = getPos(IRB.model);
                             environment.updateObjectPosition(bowl, bowl_verts, T);
                         end
@@ -255,29 +269,40 @@ while ~strcmp(state, 'FINISHED')
     pause(delay)
 end
 
-
-listener.delete();
-
+if useArduino
+    listener.delete();
+end
 
 function position = getPos(robotModel)
     % Compute the end effector's position and rotation
     endEffectorTransform = robotModel.fkine(robotModel.getpos());
     endEffectorPos = endEffectorTransform.t;
-    endEffectorRot = endEffectorTransform.R;
     
-    % Extract the z-axis direction from the rotation matrix
+    % Get the directions from the rotation matrix
+    endEffectorRot = endEffectorTransform.R;
+    xDirection = endEffectorRot(:, 1);
+    yDirection = endEffectorRot(:, 2);
     zDirection = endEffectorRot(:, 3);
     
     % Compute the offset position
-    offsetPos = endEffectorPos + (0.1 * zDirection);
+    offsetPos = endEffectorPos;
     
-    relativeRotation = eye(3);
+    % Create a rotation matrix that keeps the y-axis pointing upwards
+
+    % Global Z axis
+    zAxis = [0; 0; 1];
     
-    % Create a transformation matrix for the offset position and rotation
-    position = [relativeRotation, offsetPos; 0, 0, 0, 1];
+    % The y-axis is perpendicular to the z-axis and the end effector's x-axis
+    yDirection = cross(zAxis, xDirection);
+    yDirection = yDirection / norm(yDirection); % Normalize the vector
+    
+    % Recompute the x-axis to ensure orthogonality
+    xDirection = cross(yDirection, zAxis);
+    
+    % Assemble the rotation matrix
+    uprightRot = [xDirection, yDirection, zAxis];
+    
+    % Create a transformation matrix for the offset position and upright rotation
+    position = [uprightRot, offsetPos; 0, 0, 0, 1] * transl(0.2, 0, -0.1);
 end
-
-
-
-
 
