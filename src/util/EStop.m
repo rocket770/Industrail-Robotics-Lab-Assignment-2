@@ -5,10 +5,11 @@ classdef EStop < handle
         eStopButton % GUI control
         state = 'running'; % Initial state of the system
         f
+        listener
     end
 
     methods
-        function obj = EStop()
+        function obj = EStop()            
             obj.createGUI();
         end
 
@@ -76,10 +77,10 @@ classdef EStop < handle
 
 
         function keyPressCallback(obj, ~, event)
-                %if event.Key == 's'
-                %    obj.triggerEStop();
-                %end
-                obj.triggerEStop();
+                if event.Key == 's'
+                    obj.triggerEStop();
+                end
+                %obj.triggerEStop();
          end
 
      end
