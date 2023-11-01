@@ -174,5 +174,66 @@ classdef AdvancedTeach < handle
         end
 
 
+        function controllerCallback(app, ~, ~)
+            threshold = 0.1;
+            [axes, buttons, ~] = read(app.joy);
+
+            disp(axes);
+
+            % Add deadzone, abs threshold = 0.1
+            for i = 1:length(axes)
+                if abs(axes(i)) < threshold
+                    axes(i) = 0;
+                end
+            end
+
+            dt = 0.15;
+            app.joyQ = app.robot.getpos();
+            Kv = 0.3; % linear velocity gain
+            Kw = 0.8; % angular velocity gain
+            vx = Kv * axes(1);
+            vy = Kv * axes(2);
+            vz = Kv * (buttons(5) - buttons(7));
+            wx = Kw * axes(4);
+            wy = Kw * axes(3);
+            wz = Kw * (buttons(6) - buttons(8));
+            dx = [vx; vy; vz; wx; wy; wz]; % combined velocity vector
+
+
+
+            % Use DLS J inverse to calculate joint velocity
+            lambda = 0.5;
+            J = app.robot.jacob0(app.joyQ);
+            Jinv_dls = inv((J'*J)+lambda^2*eye(6))*J';
+            dq = Jinv_dls*dx;
+
+            % Apply joint velocity to step robot joint angles
+            q = app.joyQ + dq'*dt;
+            
+            inJointLimits = true;
+            % Check if the next movement is within qlim, by looking at
+            % every joint before it is applied
+            for i = 1:app.robot.n
+                if q(i) < app.qlim(i, 1) || q(i) > app.qlim(i, 2)
+                    inJointLimits = false;
+                end
+            end
+
+            if inJointLimits
+                app.joyQ = q;
+                app.updateRobotPosition(app.joyQ);
+            end
+
+        end
+
+        function closeRequestFcn(app, ~, ~)
+            
+            % Stop and delete the joystick timer
+            stop(app.joyTimer);
+            delete(app.joyTimer);
+
+            delete(app.fig);
+        end
+
     end
 end
