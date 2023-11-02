@@ -20,7 +20,7 @@ classdef EnvironmentSetup < handle
         function kitchen(self)
 
             %Place kitchen top
-            stove = PlaceObject('stove.ply',[-2.2,-0.75,0]);
+            stove = PlaceObject('stove.ply',[-2.3,-0.75,0]);
             verts = [get(stove,'Vertices'), ones(size(get(stove,'Vertices'),1),1)] * trotz(-pi/2);
             verts(:,1) = verts(:,1);
             verts(:,2) = verts(:,2);
@@ -50,17 +50,17 @@ classdef EnvironmentSetup < handle
 
             %Place fire_extinguisher
 
-            fire_extinguisher = PlaceObject('fireExtinguisher.ply',[2,3,0]);
+            fire_extinguisher = PlaceObject('fireExtinguisher.ply',[0,-3.5,0]);
             verts = [get( fire_extinguisher,'Vertices'), ones(size(get( fire_extinguisher,'Vertices'),1),1)];
             set( fire_extinguisher,'Vertices',verts(:,1:3));
 
             %Place emergency button
 
-            emer_button = PlaceObject('emergencyStopButton.ply',[2.7,-0.5,0.5]);
+            emer_button = PlaceObject('emergencyStopButton.ply',[0.8,-3.5,0.6]);
             verts = [get( emer_button ,'Vertices'), ones(size(get( emer_button ,'Vertices'),1),1)];
             set( emer_button ,'Vertices',verts(:,1:3));
 
-            % Place four barriers for the fence
+            % Place four barriers
 
             barrier_1 = PlaceObject('barrier1.5x0.2x1m.ply',[(0 ),(3.1),(0)]);
             verts = [get( barrier_1 ,'Vertices'), ones(size(get( barrier_1 ,'Vertices'),1),1)];
@@ -90,7 +90,15 @@ classdef EnvironmentSetup < handle
             verts(:,3) = verts(:,3);
             set( barrier_4 ,'Vertices',verts(:,1:3));
 
+            roundTable = PlaceObject('tableRound0.3x0.3x0.3m.ply',[1,-3.5,0]);
+            verts = [get( roundTable,'Vertices'), ones(size(get( roundTable,'Vertices'),1),1)];
+            verts(:,1) = verts(:,1) ;
+            verts(:,2) = verts(:,2);
+            verts(:,3) = verts(:,3)*2;
+            set( roundTable,'Vertices',verts(:,1:3));
+
         end
+
         %adding the dobot to the environment
         function dobot = placeDobot(self)
             transform = [eye(3), [2;-0.98; 0.505]; zeros(1,3) 1] * trotz(-pi/2);
