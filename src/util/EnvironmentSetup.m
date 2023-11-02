@@ -7,6 +7,7 @@ classdef EnvironmentSetup < handle
             cla;
             self.kitchen();
             self.safetyObjects();
+            hold on;
 
             axis equal
             axis([-4 4 -4 4 0 1.5])
@@ -18,8 +19,11 @@ classdef EnvironmentSetup < handle
         function kitchen(self)
 
             %Place kitchen top
-            stove = PlaceObject('stove.ply',[0,-1.2,0]);
-            verts = [get(stove,'Vertices'), ones(size(get(stove,'Vertices'),1),1)];
+            stove = PlaceObject('stove.ply',[-2.2,-0.75,0]);
+            verts = [get(stove,'Vertices'), ones(size(get(stove,'Vertices'),1),1)] * trotz(-pi/2);
+            verts(:,1) = verts(:,1);
+            verts(:,2) = verts(:,2);
+            verts(:,3) = verts(:,3) * 1.5;
             set(stove,'Vertices',verts(:,1:3));
 
             hold on;
@@ -36,10 +40,10 @@ classdef EnvironmentSetup < handle
 
 
 
-        function safetyObjects(self)
+        function  safetyObjects(self)
 
             % Place table to mount the IRB 1200 0.9 On
-            h_1 = PlaceObject('tableBrown2.1x1.4x0.5m.ply',[2,-1,0]);
+            h_1 = PlaceObject('tableBrown2.1x1.4x0.5m.ply',[2,-0.8,0]);
             verts = [get(h_1,'Vertices'), ones(size(get(h_1,'Vertices'),1),1)];
             set(h_1,'Vertices',verts(:,1:3));
 
@@ -88,7 +92,7 @@ classdef EnvironmentSetup < handle
         end
 
         function dobot = placeDobot(self)
-            transform = [eye(3), [2;-1.5; 0.505]; zeros(1,3) 1] * trotz(pi/2);
+            transform = [eye(3), [2;-0.98; 0.505]; zeros(1,3) 1] * trotz(-pi/2);
             dobot = DobotMagician(transform);
 
         end
