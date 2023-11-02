@@ -1,4 +1,5 @@
 classdef AdvancedTeach < handle
+    % Properties which store key elements for advanced robot teaching and control in the class
     properties
         fig
         robot
@@ -8,7 +9,7 @@ classdef AdvancedTeach < handle
         step = 0.01;
         positionLabel
 
-        % Joystick
+        % joystick
         joy
         prevButtons
         joyTimer % Timer for joystick polling
@@ -16,6 +17,7 @@ classdef AdvancedTeach < handle
     end
 
     methods
+    %sets up the robot, joystick, and timer for real time joystick input polling to enable advanced robot control
         function app = AdvancedTeach(robot)
             if nargin < 1
                 error('Please provide a robot model.');
@@ -42,18 +44,23 @@ classdef AdvancedTeach < handle
             app.fig = gcf;
             ax = gca;
             ax.Position(1) = 0.3; % To make sure the axes and panels do not overlap
+            %adjusting width and height of the figure window
             app.fig.Position(3) = 820;
             app.fig.Position(4) = 480;
-        
+
+            %Get the number of joints in the robot
             numJoints = app.robot.n;
+            
+            %initialise the slider handles and value edit handles with a length of numJoints
             app.sliders = gobjects(1, numJoints);
             app.valueEdits = gobjects(1, numJoints);
         
+            %create the panels for various control and display purposes within the user interface
             sliderPanel = uipanel('Title', 'Joint Controls', 'Units', 'normalized', 'Position', [0.005 0.2 0.29 0.8]);
             cartesianPanel = uipanel('Title', 'Cartesian Controls', 'Units', 'normalized', 'Position', [0.005 0.005 0.29 0.4]);
             positionPanel = uipanel('Title', 'Cartesian Position', 'Units', 'normalized', 'Position', [0.005 0.005 0.29 0.13]);
     
-            
+            %Set the dimensions and positions of sliders and text labels for consistency and alignment within the panels
             sliderWidth = 0.7; % To make sliders wider within the panel
             sliderHeight = 0.1; % To make sliders higher within the panel
             editWidth = 0.15;
@@ -63,22 +70,24 @@ classdef AdvancedTeach < handle
             textPosLeft = 0.01; 
             textWidth = 0.08; % Width for the static text
         
-        
+            %all joints are looped to create sliders, text labels, and value edit boxes
             for i = 1:numJoints
+                %create a text label for the joint
                 uicontrol('Parent', sliderPanel, 'Style', 'text', 'String', ['q', num2str(i)], ...
                          'Units', 'normalized', 'Position', [textPosLeft, sliderYPos - i * (sliderHeight + sliderGap), textWidth, sliderHeight], ...
                          'HorizontalAlignment', 'center', 'FontSize', 10); 
         
-                % Adjust the position of the slider to match the new static text position and width.
+                % Adjust the position of the slider to match the new static text position and width
                 app.sliders(i) = uicontrol('Parent', sliderPanel, 'Style', 'slider', 'Min', app.qlim(i,1), 'Max', app.qlim(i,2), 'Value', 0, ...
                                           'Units', 'normalized', 'Position', [textPosLeft + textWidth, sliderYPos - i * (sliderHeight + sliderGap), sliderWidth, sliderHeight], ...
                                           'Callback', @(src, event) app.sliderCallback(i));
-                                          
+                % Create an edit box for displaying/editing the joint angle value                          
                 app.valueEdits(i) = uicontrol('Parent', sliderPanel, 'Style', 'edit', 'String', '0', ...
                                              'Units', 'normalized', 'Position', [0.82, sliderYPos - i * (sliderHeight + sliderGap), editWidth, sliderHeight], ...
                                              'Callback', @(src, event) app.textboxCallback(src, i));
             end
-                
+
+            % Define button dimensions and gaps for Cartesian control buttons
             btnWidth = 0.45; % Adjusted button width for neat appearance
             btnHeight = 0.19; % Adjusted button height for neat appearance
             btnGap = 0.02; % Gap between buttons
@@ -106,27 +115,30 @@ classdef AdvancedTeach < handle
 
         end
 
+        &actually making the button within the user interface
         function createButton(app, parent, label, position, callback)
             uicontrol('Parent', parent, 'Style', 'pushbutton', 'String', label, 'Units', 'normalized', 'Position', position, 'Callback', callback);
         end
 
 
         function updateRobot(app)
+         % Get joint angles from sliders and update the corresponding value edits
             q = zeros(1, app.robot.n);
             for i = 1:app.robot.n
                 q(i) = app.sliders(i).Value;
                 
                 app.valueEdits(i).String = num2str(q(i));
             end
-            
+          % Update the robot's configuration and the position panel 
             app.robot.animate(q);
             app.updatePositionPanel();
         end
 
         function textboxCallback(app, src, jointIndex)
+            % Callback when a text input box is edited
             value = str2double(src.String);
             
-            % Clamp the value between qlim
+            % Clamp the value within joint angle limits
             value = max(app.qlim(jointIndex, 1), min(value, app.qlim(jointIndex, 2)));
             
             % Update the slider value
@@ -140,18 +152,22 @@ classdef AdvancedTeach < handle
         end
 
         function sliderCallback(app, jointIndex)
+            % Callback when a slider is moved
             value = app.sliders(jointIndex).Value;
             
-            % Update the Edit Text String with the slider value
+            % Update the text input value with the sliders value
             app.valueEdits(jointIndex).String = num2str(value);
             
             app.updateRobot();
         end
-    
+
+        % Move the robot's end effector in Cartesian space
         function moveInCartesian(app, direction, step)
+            %Get the current joint angles and the  end effector transformation matrix
             q = app.robot.getpos();
             T = app.robot.fkine(q);
-        
+
+        %update x, y, z coordinates 
             switch direction
                 case 'x'
                     T.t(1) = T.t(1) + step;
@@ -162,19 +178,20 @@ classdef AdvancedTeach < handle
             end
         
             try
-                qNew = app.robot.ikine(T, q);
+                qNew = app.robot.ikine(T, q);  % Calculate new joint angles
             catch
-                % Does not work atm 
+                 % If inverse kinematics fails, provide a warning message 
                 warning('The robot is reaching out too far and cannot accurately step in the desired direction alone.\nConsider using  "ikine()"');
                 warndlg('The robot is reaching out too far and cannot accurately step in the desired direction alone.\nConsider using  "ikine()"');
             end
             
             if ~isempty(qNew)
-               app.updateRobotPosition(qNew)
+               app.updateRobotPosition(qNew) % Update the robot's position if new joint angles are valid
             end
         end
 
         function updateRobotPosition(app, q)
+         % Update the robot's position based on the joint angles 
             app.robot.animate(q);
             for i = 1:app.robot.n
                 app.sliders(i).Value = q(i);
@@ -184,6 +201,7 @@ classdef AdvancedTeach < handle
         end
 
         function modifyStep(app, src)
+        % Modify the step size for Cartesian movement
             app.step = str2double(src.String);
             if app.step <= 0
                 app.step = 0.01; % Default value or a minimal positive value
@@ -192,6 +210,7 @@ classdef AdvancedTeach < handle
         end
 
         function updatePositionPanel(app)
+        % Update the GUI panel displaying the current Cartesian position
             % Get the current position of the robot
             q = app.robot.getpos();
             T = app.robot.fkine(q);
@@ -201,13 +220,14 @@ classdef AdvancedTeach < handle
         end
 
         function controllerCallback(app, ~, ~)
-            threshold = 0.1;
-            [axes, buttons, ~] = read(app.joy);
+         % Callback function to handle joystick input
+          threshold = 0.1;
+             [axes, buttons, ~] = read(app.joy);
 
             
 
-            % Add deadzone, abs threshold = 0.1
-            for i = 1:length(axes)
+            % Apply a deadzone for joystick axes
+             for i = 1:length(axes)
                 if abs(axes(i)) < threshold
                     axes(i) = 0;
                 end
@@ -255,6 +275,7 @@ classdef AdvancedTeach < handle
         end
 
         function closeRequestFcn(app, ~, ~)
+            % Handle the close request of the application
             
             % Stop and delete the joystick timer
             stop(app.joyTimer);
@@ -263,7 +284,8 @@ classdef AdvancedTeach < handle
             delete(app.fig);
         end
 
-         function keyPressCallback(app, ~, event)
+         function keyPressCallback(app, ~, event) % Handle key press events
+         % If 'r' key is pressed, reset the robot's position to all joints at 0
                 if event.Key == 'r'
                     app.updateRobotPosition(zeros(1,app.robot.n));
                 end
