@@ -10,10 +10,11 @@ void setup() {
 }
 
 void loop() {
-  
+    // read button press, 0 = press
     int buttonState = digitalRead(2);
-
+    
     if (buttonState == LOW) {
+      // debounce the button press to only look for a press every 700ms
       if ( (millis() - lastDebounceTime) > debounceDelay) {
         lastDebounceTime = millis(); //set the current time
         Serial.write(83);
