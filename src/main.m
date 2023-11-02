@@ -11,17 +11,19 @@ collisionPoint = 2;
 
 % only set true if arduino is connected
 useArduino = false;
-comPort = "COM3";
+comPort = "COM3"; %connect to according com for arduino connection 
 
-%% Workspace Setup
-
+%% Set up the environment for the workspace
 environment = EnvironmentSetup;
 
+% Place a bowl in the environment
 [bowl, bowl_verts] = environment.placeBowl();
 
+% Place Dobot and IRB robot in the environment
 dobot = environment.placeDobot();
 IRB = environment.placeIRB12009();
 
+% Set model delays to assuming instantaneous robot responses
 dobot.model.delay = 0;
 IRB.model.delay = 0;
 
