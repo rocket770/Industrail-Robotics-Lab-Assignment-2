@@ -1,6 +1,6 @@
 classdef EnvironmentSetup < handle
 
-
+    %have seperate functions to organise the different items used to make the environment for a safe workspace
     methods
         %% Constructor
         function self = EnvironmentSetup()
@@ -9,6 +9,7 @@ classdef EnvironmentSetup < handle
             self.safetyObjects();
             hold on;
 
+            %size of the environment
             axis equal
             axis([-4 4 -4 4 0 1.5])
 
@@ -59,7 +60,7 @@ classdef EnvironmentSetup < handle
             verts = [get( emer_button ,'Vertices'), ones(size(get( emer_button ,'Vertices'),1),1)];
             set( emer_button ,'Vertices',verts(:,1:3));
 
-            % Place four barriers
+            % Place four barriers for the fence
 
             barrier_1 = PlaceObject('barrier1.5x0.2x1m.ply',[(0 ),(3.1),(0)]);
             verts = [get( barrier_1 ,'Vertices'), ones(size(get( barrier_1 ,'Vertices'),1),1)];
@@ -90,19 +91,19 @@ classdef EnvironmentSetup < handle
             set( barrier_4 ,'Vertices',verts(:,1:3));
 
         end
-
+        %adding the dobot to the environment
         function dobot = placeDobot(self)
             transform = [eye(3), [2;-0.98; 0.505]; zeros(1,3) 1] * trotz(-pi/2);
             dobot = DobotMagician(transform);
 
         end
-
+        %placing the IRB robot on top of the table 
         function IRB = placeIRB12009(self)
             transform = [eye(3), [1.1;-1; 0.505]; zeros(1,3) 1];
             IRB = IRB12009(transform);
 
         end
-
+        %adding the bowl on top of the table for the dobot to mix the cake batter in 
         function [bowl, bowl_verts] = placeBowl(self)
 
             bowl = PlaceObject('Bowl.ply');
@@ -114,7 +115,7 @@ classdef EnvironmentSetup < handle
 
          
         end
-
+        %function to update transforms and verticies 
         function updateObjectPosition(self, object, vertices, transform)
 
             transformedVertices = [vertices, ones(size(vertices,1),1)] * transform';
