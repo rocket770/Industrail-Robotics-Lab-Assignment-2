@@ -34,16 +34,13 @@ collisionDetector = CollisionDetector(IRB.model);
 %% Collision Object
 if useCollisions
     plotOptions.plotFaces = true;
-
+    % pick between 2 different locations for the intefering object
     if collisionPoint == 1
-    centerpnt = [1.5,-1.2,0.6];
-    [vertex,faces,faceNormals] = RectangularPrism(centerpnt-0.1, centerpnt + 0.3, plotOptions);
-
-
+        centerpnt = [1.5,-1.2,0.6];
+        [vertex,faces,faceNormals] = RectangularPrism(centerpnt-0.1, centerpnt + 0.3, plotOptions);
     else
-    centerpnt = [1.2,-2.2,0.1];
-    [vertex,faces,faceNormals] = RectangularPrism(centerpnt-0.1, centerpnt + 0.8, plotOptions);
-
+        centerpnt = [1.2,-2.2,0.1];
+        [vertex,faces,faceNormals] = RectangularPrism(centerpnt-0.1, centerpnt + 0.8, plotOptions);
     end
     
     % Add the obstacle (the box) to the collision detector
@@ -141,16 +138,16 @@ stiringRepetions = 1; % Set the number of repetitions for stirring
 
 delay = 0.005;
 
-state = "INIT"; %variable which determines the state
+state = "INIT"; % determines the starting state. the programm will operate at any given starting state
 
-%various counters and indices for tracking repetitions, waypoints, steps, IRB positions, and IRB movement steps
+% counters and indices for tracking repetitions, waypoints, steps, IRB positions, and IRB movement steps
 currentRep = 1;
 currentPoint = 1;
 currentStep = 1;
 currentIRBPos = 1;
 currentIRBStep = 1;
 
-while ~strcmp(state, 'FINISHED') %Continue until the state is finished
+while ~strcmp(state, 'FINISHED') %  main loops until the state machine has reach the state finished
 
     if useArduino
         listener.checkForData(); % Check for data from Arduino if enabled
@@ -182,7 +179,7 @@ while ~strcmp(state, 'FINISHED') %Continue until the state is finished
         case "INIT"
             % Initialisation, set up initial conditions
 
-            state = "STIR_BOWL"; %transition states to begin the stirring process
+            state = "STIR_BOWL"; %t ransition states to begin the stirring process
 
         %Execute RMRC for the Dobot in a circular path while updating the visualisation, ensuring if there are more repetitions, waypoints, and steps to perform within the circular path
         case "STIR_BOWL"
