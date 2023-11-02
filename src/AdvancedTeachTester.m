@@ -1,3 +1,4 @@
+%used to test the advanced teach with the IRB robot
 close all;
 clear all;
 
