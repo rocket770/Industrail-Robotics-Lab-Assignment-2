@@ -38,11 +38,13 @@ endEffectorRotation = [0,0,0];
         % targetEndEffectorMsg.Position.Z = 0;
         % 
         % send(targetEndEffectorPub,targetEndEffectorMsg)
-
+        
+        %The initial pose of the end effector is set 
         targetEndEffectorMsg.Position.X = 0.3; 
         targetEndEffectorMsg.Position.Y = 0;
         targetEndEffectorMsg.Position.Z = 0.05;
 
+        %The orientation is calculated as a quaternion and then assigned to the message
         qua = eul2quat(endEffectorRotation);
         targetEndEffectorMsg.Orientation.W = qua(1);
         targetEndEffectorMsg.Orientation.X = qua(2);
@@ -51,29 +53,31 @@ endEffectorRotation = [0,0,0];
 
 
         send(targetEndEffectorPub,targetEndEffectorMsg);
-        pause(0.5)
+        pause(0.5) %time for processing
 
-for j = 1:3
-    for i = 1:steps
-
+%2 nested loops are used to create the circular motion
+for j = 1:3 %iterates 3 times 
+    for i = 1:steps 
+        % this iterates through each point on the circular path and updates the end effector pose using x(i) and y(i) from the circular path calculation
         targetEndEffectorMsg.Position.X = x(i); 
         targetEndEffectorMsg.Position.Y = y(i   
         targetEndEffectorMsg.Position.Z = 0;
 
+        %orientation remains constant throughout this process
         qua = eul2quat(endEffectorRotation);
         targetEndEffectorMsg.Orientation.W = qua(1);
         targetEndEffectorMsg.Orientation.X = qua(2);
         targetEndEffectorMsg.Orientation.Y = qua(3);
         targetEndEffectorMsg.Orientation.Z = qua(4);
 
-
+        %sends the new end-effector pose to the ROS system 
         send(targetEndEffectorPub,targetEndEffectorMsg);
         pause(0.5)
         % disp("rotation")
        
     end
 end
-
+        %sets the end effector pose back to the initial pose and sends it to the ROS system
         targetEndEffectorMsg.Position.X = 0.3; 
         targetEndEffectorMsg.Position.Y = 0;
         targetEndEffectorMsg.Position.Z = 0.05;
