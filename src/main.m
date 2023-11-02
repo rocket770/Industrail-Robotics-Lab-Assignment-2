@@ -23,7 +23,7 @@ environment = EnvironmentSetup;
 dobot = environment.placeDobot();
 IRB = environment.placeIRB12009();
 
-% Set model delays to assuming instantaneous robot responses
+% Set model delays to zero assuming instantaneous robot responses
 dobot.model.delay = 0;
 IRB.model.delay = 0;
 
@@ -46,17 +46,18 @@ if useCollisions
 
     end
     
-    % Plot box here  
+    % Add the obstacle (the box) to the collision detector
     collisionDetector.addObstacle(vertex,faces,faceNormals);
 end
-%% RMRC Cirlce Path
-
+%% RMRC Circle Path
+% Create a path generator for the dobot model using the specified mask
 pathGenerator = PathGenerator(dobot.model, mask);
 
-% Circle parameters
+% Define circle parameters
 center = [2 -1.24 0.6]'; % [x, y, z] - Center of the circle, z-coordinate specifies the height
 radius = 0.02; % Radius of the circle
 
+%intermediate steps between waypoints to generate a trajectory
 steps_per_waypoint = 20;
 traj_waypoints = 20;
 
@@ -75,19 +76,23 @@ end
 
 deltaT = 0.02;
 
+% Generate a RMRC trajectory for the circular path
 circleQMatrix = pathGenerator.getWaypointRMRC(waypoints, steps_per_waypoint, deltaT);
 
 %% Lift Up RMRC
+% Define waypoints for lifting the dobot
 x1 = [center(1) - radius center(2) center(3)  0]';
 x2 = [center(1) - radius center(2) center(3) + 0.04 0]';
 
 pointSteps = 30;
 
+% Generate a RMRC trajectory for lifting the dobot
 liftQMatrix = pathGenerator.getPointRMRC(x1, x2, pointSteps, deltaT);
 
-%% Move Away Dobot
+%% Define waypoints for moving the dobot away
 x3 = x2 + [0.1, -0.06 0 0]';
 
+% Generate a RMRC trajectory for moving the dobot away
 moveQMatrix = pathGenerator.getPointRMRC(x2, x3, pointSteps, deltaT);
 
 %% IRB Waypoints
@@ -102,65 +107,71 @@ IRBPositions = [
     0.795 -1.5 1.1
     ];
 
+% Joint Angle Waypoints for IRB robot
 IRBAngles = [
     -0.2967    1.4451   -0.3770         0   -0.7854         0;
     -0.2967    1.4451   -0.3770         0   -0.7854         0;
-    -0.3    1.2008   -0.05        0         0         0;
-    -0.2546   0.6178   -0.1599         0         0         0;   % THish put this in
+    -0.3    0.8   -0.05        0         0         0;
+    -0.2546   0.6178   -0.1599         0         0         0;   
     -2   1.1   -0.5         0         0         0;
-    -0.2546   0.6178   -0.1599         0         0         0;   % THish put this in
+    -0.2546   0.6178   -0.1599         0         0         0;   
     ];
 
 %% Gripper
 
+% Define gripper open and closed states
 gripperOpen = [0,0];
 gripperClosed = [0, pi/8];
 
-% Init each finger in the gripper
+% Initialise each finger in the gripper
 gripper = IRBGripper(IRB.model, 0.1, gripperOpen, gripperClosed);
 gripper.updateGripperPosition(IRB.model, gripperOpen)
 
-%% E Stop
+%%introducing E Stop
 eStop = EStop();
 
+%using signal from arduino to trigger the E-Stop
 if useArduino
     listener = ArduinoListener(comPort, 9600, eStop);
 end
 
 %% Main loop
 
-stiringRepetions = 1;
+stiringRepetions = 1; % Set the number of repetitions for stirring
 
 delay = 0.005;
 
-state = "INIT";
+state = "INIT"; %variable which determines the state
 
+%various counters and indices for tracking repetitions, waypoints, steps, IRB positions, and IRB movement steps
 currentRep = 1;
 currentPoint = 1;
 currentStep = 1;
 currentIRBPos = 1;
 currentIRBStep = 1;
 
-while ~strcmp(state, 'FINISHED')
+while ~strcmp(state, 'FINISHED') %Continue until the state is finished
 
     if useArduino
-        listener.checkForData();
+        listener.checkForData(); % Check for data from Arduino if enabled
     end
 
     
-    paused = eStop.getEStopState();
+    paused = eStop.getEStopState(); % Check the emergency stop state to see if its okay to continue or in stop state
 
+    % Get the current joint angles to detect for collisions
     if useCollisions && ~paused
-        q = IRB.model.getpos();
-        collision = collisionDetector.detectCollision(q);
-        
+        q = IRB.model.getpos(); 
+        collision = collisionDetector.detectCollision(q); 
+
+        % Display a collision detection message and trigger the e stop
         if collision
             disp('Collision Detected')
             eStop.triggerEStop();
         end
 
     end
-
+    % Continue to the next iteration if paused
     if paused
         drawnow();
         %disp('paused')
@@ -169,98 +180,105 @@ while ~strcmp(state, 'FINISHED')
 
     switch state
         case "INIT"
-            % Initialization
+            % Initialisation, set up initial conditions
 
-            state = "STIR_BOWL";
+            state = "STIR_BOWL"; %transition states to begin the stirring process
 
+        %Execute RMRC for the Dobot in a circular path while updating the visualisation, ensuring if there are more repetitions, waypoints, and steps to perform within the circular path
         case "STIR_BOWL"
             if currentRep <= stiringRepetions
                 if currentPoint < length(waypoints)
                     if currentStep <= steps_per_waypoint
-                        dobot.model.animate(circleQMatrix(currentStep, :, currentPoint));
+                        dobot.model.animate(circleQMatrix(currentStep, :, currentPoint)); %Move the actual Dobot
                         drawnow();
                         currentStep = currentStep + 1;
-
+                        
+                    % Reset the step counter and move to the next waypoint
                     else
                         currentStep = 1;
                         currentPoint = currentPoint + 1;
                     end
                 else
+                    %reset the waypoint index and move to the next repitition
                     currentPoint = 1;
                     currentRep = currentRep + 1;
                 end
 
+                %when the steps to this stirring process are complete, the state moves on to lifting the dobot arm
                 if currentRep > stiringRepetions
                     state = "LIFT_ARM";
                     delay = 0.01;
                 end
 
-                
             end
-
+            
+        %Elevate the Dobots arm out of the bowl through a sequence of steps , updating the visualisation as it progresses
         case "LIFT_ARM"
             if currentStep <= pointSteps
                 dobot.model.animate(liftQMatrix(currentStep,:));
                 drawnow();
                 currentStep = currentStep + 1;
             else
+                %the step counter is now reset and the states change
                 currentStep = 1;
                 state = "MOVE_DOBOT";
             end
-
+        %move the Dobot accordingly, for the IRB robot to come in to pick the bowl up without collision 
         case "MOVE_DOBOT"
             if currentStep <= pointSteps
                 dobot.model.animate(moveQMatrix(currentStep,:));
                 drawnow();
                 currentStep = currentStep + 1;
             else
+                %the steps once again reset and the states move along
                 currentStep = 1;
                 state = "IRB_MOVEMENT";
             end
 
         case "IRB_MOVEMENT"
-            if currentIRBPos <= length(IRBPositions)
+            if currentIRBPos <= length(IRBPositions) % Check if there are more IRB movement positions
 
                 if ~exist('irbSubState', 'var') || strcmp(irbSubState, 'NEW_POSITION')
-                    qCurrent = IRB.model.getpos();
-                    goal = transl(IRBPositions(currentIRBPos,:)) * troty(pi/2);
-                    qGoal = IRB.model.ikine(goal, IRBAngles(currentIRBPos,:), 'mask', mask);
-                    qMatrix = jtraj(qCurrent, qGoal, pointSteps);
+                    qCurrent = IRB.model.getpos();  % Get the current joint angles of the IRB
+                    goal = transl(IRBPositions(currentIRBPos,:)) * troty(pi/2); %goal position
+                    qGoal = IRB.model.ikine(goal, IRBAngles(currentIRBPos,:), 'mask', mask); % Calculate joint angles for the goal
+                    qMatrix = jtraj(qCurrent, qGoal, pointSteps); % Generate a joint angle trajectory
 
                     switch currentIRBPos
                         case 1
-                            gripperState = gripperOpen;
+                            gripperState = gripperOpen; % Set the gripper state to open
                         case 3
                             gripper.closeHand();
-                            gripperState = gripperClosed;
+                            gripperState = gripperClosed; % Set the gripper state to closed
                         case 6
-                            gripper.openHand();
+                            gripper.openHand(); % Open the gripper
                             gripperState = gripperOpen;
                     end
 
-                    irbSubState = 'RUNNING_STEPS';
+                    irbSubState = 'RUNNING_STEPS'; %moving states for IRB to continue its other movements
                 end
 
                 if strcmp(irbSubState, 'RUNNING_STEPS')
-                    if currentIRBStep <= pointSteps
-                        IRB.model.animate(qMatrix(currentIRBStep,:));
-                        gripper.updateGripperPosition(IRB.model, gripperState);
+                    if currentIRBStep <= pointSteps %are there more IRB steps to carry out
+                        IRB.model.animate(qMatrix(currentIRBStep,:)); %move the IRB 
+                        gripper.updateGripperPosition(IRB.model, gripperState); %update the gripper position 
 
                         if (currentIRBPos > 2 && currentIRBPos < 6)
-                            T = getPos(IRB.model);
-                            environment.updateObjectPosition(bowl, bowl_verts, T);
+                            T = getPos(IRB.model); % Get the IRB's current position
+                            environment.updateObjectPosition(bowl, bowl_verts, T); %making sure to update the bowls postition 
                         end
 
-                        drawnow();
+                        drawnow(); 
                         currentIRBStep = currentIRBStep + 1;
                     else
-                        currentIRBStep = 1;
+                        currentIRBStep = 1; 
                         currentIRBPos = currentIRBPos + 1;
-                        irbSubState = 'NEW_POSITION';
+                        irbSubState = 'NEW_POSITION'; %new state is reached
                     end
                 end
 
             else
+                % Transition to the "FINISHED" state, once all the tasks have finished
                 state = "FINISHED";
             end
 
@@ -275,6 +293,7 @@ if useArduino
     listener.delete();
 end
 
+%calculates the position and orientation of an end effector based on the robot, which has been used with offsets to make the end effector perfectly reach the bowl
 function position = getPos(robotModel)
     % Compute the end effector's position and rotation
     endEffectorTransform = robotModel.fkine(robotModel.getpos());
@@ -307,4 +326,5 @@ function position = getPos(robotModel)
     % Create a transformation matrix for the offset position and upright rotation
     position = [uprightRot, offsetPos; 0, 0, 0, 1] * transl(0.2, 0, -0.1);
 end
+
 
