@@ -1,4 +1,4 @@
-%calculates the position and orientation of an end effector based on the robot, which has been used with offsets to make the end effector perfectly reach the bowl
+%calculates the position and orientation of the bowl relative to the end effector, which has been used with offsets to make the bowl look like it properly being gripped
 function position = getPos(robotModel)
     % Compute the end effector's position and rotation
     endEffectorTransform = robotModel.fkine(robotModel.getpos());
