@@ -115,7 +115,7 @@ classdef AdvancedTeach < handle
 
         end
 
-        &actually making the button within the user interface
+        % Function to cleanly create buttons
         function createButton(app, parent, label, position, callback)
             uicontrol('Parent', parent, 'Style', 'pushbutton', 'String', label, 'Units', 'normalized', 'Position', position, 'Callback', callback);
         end
